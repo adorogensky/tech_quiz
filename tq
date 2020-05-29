@@ -17,5 +17,9 @@ for row in cursor.execute("select * from question_answer"):
         conn.commit()
     else:
         print("Incorrect")
-
+        params = [row['id'], answer, 0, datetime.now()]
+        conn.execute(
+                "insert into answer_stats (question_id, answer, correct_answer, timestamp) values (?,?,?,?)", params
+        )
+        conn.commit()
 conn.close()
