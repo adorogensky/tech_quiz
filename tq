@@ -5,6 +5,11 @@ conn.row_factory = sqlite3.Row
 cursor = conn.cursor()
 
 for row in cursor.execute("select * from question_answer"):
-    print(row["question"])
+    print("Question: ", row["question"])
+    answer = input("Answer: ")
+    if (answer == row["answer"]):
+        print("Correct!")
+    else:
+        print("Incorrect")
 
 conn.close()
