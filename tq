@@ -1,25 +1,67 @@
 #!/usr/bin/python
 import sqlite3
+import random
 from datetime import datetime
+
+def update_answer_stats(conn, row, answer, is_correct):
+    conn.execute(
+        "insert into answer_stats (question_id, answer, correct_answer, timestamp) values (?,?,?,?)",
+        [row['id'], answer, is_correct, datetime.now()]
+    )
+    conn.commit()
+
+def query_not_answered_questions(cursor):
+    cursor.execute("select * from question_answer where id not in (select distinct question_id from answer_stats)")
+    questions = cursor.fetchall()
+    random.shuffle(questions)
+    return questions
+
+def query_incorrectly_answered_questions(cursor):
+    cursor.execute("select * from question_answer where id in (select distinct question_id from answer_stats where correct_answer = 0)")
+    questions = cursor.fetchall()
+    random.shuffle(questions)
+    return questions
+
+def query_correctly_answered_questions_in_last_hours(cursor, last_hours = 72):
+    cursor.execute(
+            """
+            select * from question_answer join (
+               select question_id,
+               max(
+                 (
+                   strftime('%s', CURRENT_TIMESTAMP) -
+                   strftime('%s', timestamp)
+                 ) / 3600
+               ) as hours_since_last_correct_answer
+               from answer_stats
+               where correct_answer = 1
+               group by question_id
+               having hours_since_last_correct_answer >= ?
+            ) as correct_answers_in_last_hours
+            on id = correct_answers_in_last_hours.question_id
+            """,
+            [last_hours]
+    )
+    questions = cursor.fetchall()
+    random.shuffle(questions)
+    return questions
+
 conn = sqlite3.connect('tq.db')
 conn.row_factory = sqlite3.Row
 cursor = conn.cursor()
 
-for row in cursor.execute("select * from question_answer"):
+questions = query_not_answered_questions(cursor)
+questions.extend(query_incorrectly_answered_questions(cursor))
+questions.extend(query_correctly_answered_questions_in_last_hours(cursor))
+
+for row in questions:
     print("Question: ", row["question"])
     answer = input("Answer: ")
     if (answer == row["answer"]):
         print("Correct!")
-        params = [row['id'], answer, 1, datetime.now()]
-        conn.execute(
-                "insert into answer_stats (question_id, answer, correct_answer, timestamp) values (?,?,?,?)", params
-        )
-        conn.commit()
+        update_answer_stats(conn, row, answer, 1)
     else:
         print("Incorrect")
-        params = [row['id'], answer, 0, datetime.now()]
-        conn.execute(
-                "insert into answer_stats (question_id, answer, correct_answer, timestamp) values (?,?,?,?)", params
-        )
-        conn.commit()
+        update_answer_stats(conn, row, answer, 0)
+
 conn.close()
