@@ -14,33 +14,45 @@ def query_not_answered_questions(cursor):
     cursor.execute("select * from question_answer where id not in (select distinct question_id from answer_stats)")
     questions = cursor.fetchall()
     random.shuffle(questions)
+
     return questions
 
-def query_incorrectly_answered_questions(cursor):
-    cursor.execute("select * from question_answer where id in (select distinct question_id from answer_stats where correct_answer = 0)")
+def query_last_incorrectly_answered_questions(cursor):
+    cursor.execute(
+        """
+        select * from question_answer join (
+            select question_id, max(timestamp) as timestamp
+            from answer_stats
+            group by question_id
+            having correct_answer = 0
+        ) as latest_incorrect_answers
+        on id = latest_incorrect_answers.question_id
+        """
+    )
+
     questions = cursor.fetchall()
     random.shuffle(questions)
     return questions
 
-def query_correctly_answered_questions_in_last_hours(cursor, last_hours = 72):
+def query_last_correctly_answered_questions(cursor, min_hours_since_last_correct_answer = 72):
     cursor.execute(
             """
             select * from question_answer join (
                select question_id,
-               max(
+               min(
                  (
                    strftime('%s', CURRENT_TIMESTAMP) -
                    strftime('%s', timestamp)
                  ) / 3600
                ) as hours_since_last_correct_answer
                from answer_stats
-               where correct_answer = 1
                group by question_id
-               having hours_since_last_correct_answer >= ?
+               having correct_answer = 1
+               and hours_since_last_correct_answer >= ?
             ) as correct_answers_in_last_hours
             on id = correct_answers_in_last_hours.question_id
             """,
-            [last_hours]
+            [min_hours_since_last_correct_answer]
     )
     questions = cursor.fetchall()
     random.shuffle(questions)
@@ -51,8 +63,8 @@ conn.row_factory = sqlite3.Row
 cursor = conn.cursor()
 
 questions = query_not_answered_questions(cursor)
-questions.extend(query_incorrectly_answered_questions(cursor))
-questions.extend(query_correctly_answered_questions_in_last_hours(cursor))
+questions.extend(query_last_incorrectly_answered_questions(cursor))
+questions.extend(query_last_correctly_answered_questions(cursor))
 
 for row in questions:
     print("Question: ", row["question"])
