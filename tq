@@ -59,6 +59,11 @@ def query_last_correctly_answered_questions(cursor, min_hours_since_last_correct
     random.shuffle(questions)
     return questions
 
+def query_answers_by_question(question_id):
+    cursor.execute("select * from answer where question_id = ?", [question_id])
+    return cursor.fetchall()
+
+
 conn = sqlite3.connect('tq.db')
 conn.row_factory = sqlite3.Row
 cursor = conn.cursor()
@@ -76,7 +81,7 @@ while questions:
             if answer:
                 break
 
-        if (answer.rstrip() == row["answer"].rstrip()):
+        if (answer.rstrip() == query_answers_by_question(row["id"])[0]["text"].rstrip()):
             print("Correct!")
             questions.remove(row)
             update_answer_stats(conn, row, answer, 1)
