@@ -1,6 +1,7 @@
 #!/usr/bin/python
 import sqlite3
 import random
+import sys
 from datetime import datetime
 
 def update_answer_stats(conn, row, answer, is_correct):
@@ -69,8 +70,13 @@ questions.extend(query_last_correctly_answered_questions(cursor))
 while questions:
     for row in questions[:]:
         print("Question: ", row["question"])
-        answer = input("Answer: ")
-        if (answer == row["answer"]):
+
+        while True:
+            answer = sys.stdin.read()
+            if answer:
+                break
+
+        if (answer.rstrip() == row["answer"].rstrip()):
             print("Correct!")
             questions.remove(row)
             update_answer_stats(conn, row, answer, 1)
