@@ -66,14 +66,16 @@ questions = query_not_answered_questions(cursor)
 questions.extend(query_last_incorrectly_answered_questions(cursor))
 questions.extend(query_last_correctly_answered_questions(cursor))
 
-for row in questions:
-    print("Question: ", row["question"])
-    answer = input("Answer: ")
-    if (answer == row["answer"]):
-        print("Correct!")
-        update_answer_stats(conn, row, answer, 1)
-    else:
-        print("Incorrect")
-        update_answer_stats(conn, row, answer, 0)
+while questions:
+    for row in questions[:]:
+        print("Question: ", row["question"])
+        answer = input("Answer: ")
+        if (answer == row["answer"]):
+            print("Correct!")
+            questions.remove(row)
+            update_answer_stats(conn, row, answer, 1)
+        else:
+            print("Incorrect")
+            update_answer_stats(conn, row, answer, 0)
 
 conn.close()
