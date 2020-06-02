@@ -12,7 +12,7 @@ def update_answer_stats(conn, row, answer, is_correct):
     conn.commit()
 
 def query_not_answered_questions(cursor):
-    cursor.execute("select * from question_answer where id not in (select distinct question_id from answer_stats)")
+    cursor.execute("select * from question where id not in (select distinct question_id from answer_stats)")
     questions = cursor.fetchall()
     random.shuffle(questions)
 
@@ -21,7 +21,7 @@ def query_not_answered_questions(cursor):
 def query_last_incorrectly_answered_questions(cursor):
     cursor.execute(
         """
-        select * from question_answer join (
+        select * from question join (
             select question_id, max(timestamp) as timestamp
             from answer_stats
             group by question_id
@@ -38,7 +38,7 @@ def query_last_incorrectly_answered_questions(cursor):
 def query_last_correctly_answered_questions(cursor, min_hours_since_last_correct_answer = 72):
     cursor.execute(
             """
-            select * from question_answer join (
+            select * from question join (
                select question_id,
                min(
                  (
@@ -63,8 +63,8 @@ def query_answers_by_question(question_id):
     cursor.execute("select * from answer where question_id = ?", [question_id])
     return cursor.fetchall()
 
-def verify_answer_correct(cursor, answer):
-    correct_answers = query_answers_by_question(row["id"])
+def verify_answer_correct(cursor, question_id, answer):
+    correct_answers = query_answers_by_question(question_id)
     return filter(lambda correct_answer: correct_answer["text"].rstrip() == answer.rstrip(), correct_answers)
 
 conn = sqlite3.connect('tq.db')
@@ -76,20 +76,20 @@ questions.extend(query_last_incorrectly_answered_questions(cursor))
 questions.extend(query_last_correctly_answered_questions(cursor))
 
 while questions:
-    for row in questions[:]:
-        print("Question: ", row["question"])
+    for question in questions[:]:
+        print("Question: ", question["text"])
 
         while True:
             answer = sys.stdin.read()
             if answer:
                 break
 
-        if verify_answer_correct(cursor, answer):
+        if verify_answer_correct(cursor, question["id"], answer):
             print("Correct!")
-            questions.remove(row)
-            update_answer_stats(conn, row, answer, 1)
+            questions.remove(question)
+            update_answer_stats(conn, question, answer, 1)
         else:
             print("Incorrect")
-            update_answer_stats(conn, row, answer, 0)
+            update_answer_stats(conn, question, answer, 0)
 
 conn.close()
