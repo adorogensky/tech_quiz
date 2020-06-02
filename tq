@@ -4,15 +4,15 @@ import random
 import sys
 from datetime import datetime
 
-def update_answer_stats(conn, row, answer, is_correct):
+def update_metrics(conn, row, answer, is_correct):
     conn.execute(
-        "insert into answer_stats (question_id, answer, correct_answer, timestamp) values (?,?,?,?)",
+        "insert into metrics (question_id, answer, correct_answer, answered_at) values (?,?,?,?)",
         [row['id'], answer, is_correct, datetime.now()]
     )
     conn.commit()
 
 def query_not_answered_questions(cursor):
-    cursor.execute("select * from question where id not in (select distinct question_id from answer_stats)")
+    cursor.execute("select * from question where id not in (select distinct question_id from metrics)")
     questions = cursor.fetchall()
     random.shuffle(questions)
 
@@ -22,8 +22,8 @@ def query_last_incorrectly_answered_questions(cursor):
     cursor.execute(
         """
         select * from question join (
-            select question_id, max(timestamp) as timestamp
-            from answer_stats
+            select question_id, max(answered_at) as answered_at
+            from metrics
             group by question_id
             having correct_answer = 0
         ) as latest_incorrect_answers
@@ -43,10 +43,10 @@ def query_last_correctly_answered_questions(cursor, min_hours_since_last_correct
                min(
                  (
                    strftime('%s', CURRENT_TIMESTAMP) -
-                   strftime('%s', timestamp)
+                   strftime('%s', answered_at)
                  ) / 3600
                ) as hours_since_last_correct_answer
-               from answer_stats
+               from metrics
                group by question_id
                having correct_answer = 1
                and hours_since_last_correct_answer >= ?
@@ -87,9 +87,9 @@ while questions:
         if verify_answer_correct(cursor, question["id"], answer):
             print("Correct!")
             questions.remove(question)
-            update_answer_stats(conn, question, answer, 1)
+            update_metrics(conn, question, answer, 1)
         else:
             print("Incorrect")
-            update_answer_stats(conn, question, answer, 0)
+            update_metrics(conn, question, answer, 0)
 
 conn.close()
