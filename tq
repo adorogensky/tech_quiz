@@ -63,6 +63,9 @@ def query_answers_by_question(question_id):
     cursor.execute("select * from answer where question_id = ?", [question_id])
     return cursor.fetchall()
 
+def verify_answer_correct(cursor, answer):
+    correct_answers = query_answers_by_question(row["id"])
+    return filter(lambda correct_answer: correct_answer["text"].rstrip() == answer.rstrip(), correct_answers)
 
 conn = sqlite3.connect('tq.db')
 conn.row_factory = sqlite3.Row
@@ -81,7 +84,7 @@ while questions:
             if answer:
                 break
 
-        if (answer.rstrip() == query_answers_by_question(row["id"])[0]["text"].rstrip()):
+        if verify_answer_correct(cursor, answer):
             print("Correct!")
             questions.remove(row)
             update_answer_stats(conn, row, answer, 1)
