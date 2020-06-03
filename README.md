@@ -19,3 +19,8 @@ GROUP BY question_id
     
 # Limitations
 - command line doesn't allow to edit previous line of a multiline answer
+
+# Time Tracking
+may 29:   4 hrs
+jun  1: 3.5 hrs
+jun  2:   6 hrs 
