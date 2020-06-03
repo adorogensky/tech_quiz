@@ -5,10 +5,10 @@ import sys
 import signal
 from datetime import datetime
 
-def update_metrics(conn, row, answer, is_correct):
+def update_metrics(conn, question, answer, questioned_at, is_answer_correct):
     conn.execute(
-        "insert into metrics (question_id, answer, correct_answer, answered_at) values (?,?,?,?)",
-        [row['id'], answer, is_correct, datetime.now()]
+        "insert into metrics (question_id, answer, questioned_at, answered_at, is_answer_correct) values (?,?,?,?,?)",
+        [question['id'], answer, questioned_at, datetime.now(), is_answer_correct]
     )
     conn.commit()
 
@@ -26,7 +26,7 @@ def query_last_incorrectly_answered_questions(cursor):
             select question_id, max(answered_at) as answered_at
             from metrics
             group by question_id
-            having correct_answer = 0
+            having is_answer_correct = 0
         ) as latest_incorrect_answers
         on id = latest_incorrect_answers.question_id
         """
@@ -49,7 +49,7 @@ def query_last_correctly_answered_questions(cursor, min_hours_since_last_correct
                ) as hours_since_last_correct_answer
                from metrics
                group by question_id
-               having correct_answer = 1
+               having is_answer_correct = 1
                and hours_since_last_correct_answer >= ?
             ) as correct_answers_in_last_hours
             on id = correct_answers_in_last_hours.question_id
@@ -85,6 +85,7 @@ questions.extend(query_last_correctly_answered_questions(cursor))
 while questions:
     for question in questions[:]:
         print("Question: ", question["text"])
+        questioned_at = datetime.now()
 
         while True:
             answer = sys.stdin.read()
@@ -94,9 +95,9 @@ while questions:
         if verify_answer_correct(cursor, question["id"], answer):
             print("Correct!")
             questions.remove(question)
-            update_metrics(conn, question, answer, 1)
+            update_metrics(conn, question, answer, questioned_at, 1)
         else:
             print("Incorrect")
-            update_metrics(conn, question, answer, 0)
+            update_metrics(conn, question, answer, questioned_at, 0)
 
 conn.close()
